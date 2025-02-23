@@ -1,0 +1,161 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+    line-height: 1.6;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 20px;
+    background-color: #006241;
+    padding: 20px;
+}
+
+.logo {
+    max-width: 200px;
+    margin-bottom: 10px;
+}
+
+.button-nav {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.nav-button {
+    display: inline-block;
+    padding: 10px 20px;
+    margin: 0 10px;
+    background-color: #006241;
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.nav-button:hover,
+.nav-button.active {
+    background-color: #ff5e99;
+    color: white;
+}
+
+h1 {
+    color: #006241;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 2.5em;
+}
+
+h2 {
+    color: #006241;
+    border-bottom: 2px solid #ff5e99;
+    padding-bottom: 10px;
+}
+
+h3 {
+    color: #34495e;
+}
+
+p {
+    color: #666;
+    margin-bottom: 15px;
+}
+
+strong {
+    color: #006241;
+}
+
+.article,
+.predict-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.coffee-image {
+    max-width: 300px;
+    display: block;
+    margin: 20px auto;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.coffee-gif,
+.dashboard-gif {
+    max-width: 200px;
+    display: inline-block;
+    margin: 10px;
+    border-radius: 8px;
+}
+
+form {
+    max-width: 400px;
+    margin: 20px auto;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #006241;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+}
+
+button {
+    background-color: #ff5e99;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #e54d87;
+}
+
+#result {
+    margin-top: 20px;
+    text-align: center;
+    color: #006241;
+    font-weight: bold;
+}
+
+#plotly-div {
+    width: 1400px;
+    height: 1200px;
+    margin: 0 auto;
+}
+
+#feature-plot {
+    width: 800px;
+    height: 600px;
+    margin: 20px auto;
+}
+
+.gif-container {
+    text-align: center;
+    margin-top: 20px;
+}

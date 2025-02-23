@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Predict Offer Completion</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+
+<body>
+    <header class="header">
+        <img src="{{ url_for('static', filename='images/starbucks_logo_resized.png') }}" alt="Starbucks Logo"
+            class="logo">
+    </header>
+    <nav class="button-nav">
+        <a href="{{ url_for('analytics_dashboard') }}"
+            class="nav-button {% if active_tab == 'dashboard' %}active{% endif %}">Analytics Dashboard 🌟</a>
+        <a href="{{ url_for('starbucks_analytics') }}"
+            class="nav-button {% if active_tab == 'starbucks' %}active{% endif %}">Starbucks Analytics ☕</a>
+        <a href="{{ url_for('predict') }}" class="nav-button {% if active_tab == 'predict' %}active{% endif %}">Predict
+            ☕</a>
+    </nav>
+    <h1>Predict Offer Completion ☕🌟</h1>
+    <div class="predict-container">
+        <form id="predictForm">
+            <label for="age">Age ☕</label>
+            <input type="number" id="age" name="age" required min="18" max="100"><br><br>
+
+            <label for="income">Income ($)</label>
+            <input type="number" id="income" name="income" required min="0"><br><br>
+
+            <label for="gender">Gender ☕</label>
+            <select id="gender" name="gender" required>
+                <option value="F">Female</option>
+                <option value="M">Male</option>
+                <option value="O">Other</option>
+            </select><br><br>
+
+            <label>Communication Channels 🌟</label><br>
+            <input type="checkbox" id="web" name="channels" value="web">
+            <label for="web">Web</label><br>
+            <input type="checkbox" id="email" name="channels" value="email">
+            <label for="email">Email</label><br>
+            <input type="checkbox" id="mobile" name="channels" value="mobile">
+            <label for="mobile">Mobile</label><br>
+            <input type="checkbox" id="social" name="channels" value="social">
+            <label for="social">Social</label><br><br>
+
+            <label for="offer_type">Offer Type ☕</label>
+            <select id="offer_type" name="offer_type" required>
+                <option value="bogo">BOGO</option>
+                <option value="discount">Discount</option>
+                <option value="informational">Informational</option>
+            </select><br><br>
+
+            <button type="submit">Predict ☕</button>
+        </form>
+        <div id="result"></div>
+        <div id="feature-plot" style="width: 800px; height: 600px; margin: 20px auto;"></div>
+        <script>
+            var featureGraph = {{ feature_graph | safe }};
+            Plotly.newPlot('feature-plot', featureGraph.data, featureGraph.layout);
+
+            document.getElementById('predictForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                const formData = {
+                    age: document.getElementById('age').value,
+                    income: document.getElementById('income').value,
+                    gender: document.getElementById('gender').value,
+                    channels: Array.from(document.querySelectorAll('input[name="channels"]:checked')).map(cb => cb.value),
+                    offer_type: document.getElementById('offer_type').value
+                };
+                fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            document.getElementById('result').innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                        } else {
+                            document.getElementById('result').innerHTML = `
+                        <p>Prediction: ${data.prediction ? 'Offer will be completed ☕' : 'Offer will not be completed'}</p>
+                        <p>Confidence: ${data.confidence}% 🌟</p>
+                    `;
+                        }
+                    })
+                    .catch(error => {
+                        document.getElementById('result').innerHTML = `<p style="color: red;">Error: ${error}</p>`;
+                    });
+            });
+        </script>
+        <img src="{{ url_for('static', filename='images/starbucks_coffee_beans_resized.jpg') }}" alt="Starbucks Coffee"
+            class="coffee-image">
+        <img src="https://media.tenor.com/3o7aDgy5f4tlgkK3vOAAAAAD/starwars-baby-yoda-mandalorian.gif"
+            alt="Baby Yoda Starbucks GIF" class="coffee-gif">
+        <img src="https://media.tenor.com/7J9f7bXz0O8AAAAC/starbucks-coffee.gif" alt="Starbucks Logo Animation GIF"
+            class="coffee-gif">
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Analytics Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .visualizations-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .visualization {
+            width: 100%;
+            max-width: 600px;
+            height: 400px;
+            margin: 10px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .gif-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .dashboard-gif {
+            width: 200px;
+            height: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <img src="{{ url_for('static', filename='images/starbucks_logo_resized.png') }}" alt="Starbucks Logo"
+            class="logo">
+    </header>
+    <nav class="button-nav">
+        <a href="{{ url_for('analytics_dashboard') }}"
+            class="nav-button {% if active_tab == 'dashboard' %}active{% endif %}">Analytics Dashboard 🌟</a>
+        <a href="{{ url_for('starbucks_analytics') }}"
+            class="nav-button {% if active_tab == 'starbucks' %}active{% endif %}">Starbucks Analytics ☕</a>
+        <a href="{{ url_for('predict') }}" class="nav-button {% if active_tab == 'predict' %}active{% endif %}">Predict
+            ☕</a>
+    </nav>
+    <h1>Analytics Dashboard ☕🌟</h1>
+    {% if error %}
+    <p style="color: red;">Error: {{ error }}</p>
+    {% else %}
+    <div class="visualizations-container">
+        <!-- Visualization 1: Age Distribution -->
+        <div id="age_distribution" class="visualization"></div>
+
+        <!-- Visualization 2: Gender Distribution -->
+        <div id="gender_distribution" class="visualization"></div>
+
+        <!-- Visualization 3: Income Distribution -->
+        <div id="income_distribution" class="visualization"></div>
+
+        <!-- Visualization 4: Offer Completion by Gender -->
+        <div id="offer_completion_by_gender" class="visualization"></div>
+
+        <!-- Visualization 5: Offer Completion by Age Group -->
+        <div id="offer_completion_by_age" class="visualization"></div>
+
+        <!-- Visualization 6: Offer Completion by Income Group -->
+        <div id="offer_completion_by_income" class="visualization"></div>
+    </div>
+
+    <script>
+        // Debug: Log the graphs object to the console
+        console.log('Graphs received:', {{ graphs | safe }});
+
+        // Access the visualizations dictionary passed from Flask
+        var graphs = {{ graphs | safe }};
+
+        // Check if graphs is an object and has the expected keys
+        if (typeof graphs === 'object' && graphs !== null && Object.keys(graphs).length === 6) {
+            try {
+                // Log each JSON string before parsing
+                console.log('Age Distribution JSON:', graphs.age_distribution);
+                console.log('Gender Distribution JSON:', graphs.gender_distribution);
+                console.log('Income Distribution JSON:', graphs.income_distribution);
+                console.log('Offer Completion by Gender JSON:', graphs.offer_completion_by_gender);
+                console.log('Offer Completion by Age JSON:', graphs.offer_completion_by_age);
+                console.log('Offer Completion by Income JSON:', graphs.offer_completion_by_income);
+
+                // Parse and render each visualization with responsive scaling and auto-size
+                Plotly.newPlot('age_distribution', JSON.parse(graphs.age_distribution), { responsive: true, autosize: true });
+                Plotly.newPlot('gender_distribution', JSON.parse(graphs.gender_distribution), { responsive: true, autosize: true });
+                Plotly.newPlot('income_distribution', JSON.parse(graphs.income_distribution), { responsive: true, autosize: true });
+                Plotly.newPlot('offer_completion_by_gender', JSON.parse(graphs.offer_completion_by_gender), { responsive: true, autosize: true });
+                Plotly.newPlot('offer_completion_by_age', JSON.parse(graphs.offer_completion_by_age), { responsive: true, autosize: true });
+                Plotly.newPlot('offer_completion_by_income', JSON.parse(graphs.offer_completion_by_income), { responsive: true, autosize: true });
+                console.log('All visualizations rendered successfully');
+            } catch (error) {
+                console.error('Error rendering visualizations:', error);
+                console.error('Graphs object:', graphs);
+                // Fallback: Render placeholder message if JSON parsing fails
+                document.querySelectorAll('.visualization').forEach(div => {
+                    div.innerHTML = '<p style="color: red;">Error rendering visualization. Check console for details.</p>';
+                });
+            }
+        } else {
+            console.error('Invalid or incomplete graphs data:', graphs);
+            document.querySelectorAll('.visualization').forEach(div => {
+                div.innerHTML = '<p style="color: red;">No visualizations available. Check server logs.</p>';
+            });
+        }
+    </script>
+
+    <div class="gif-container">
+        <img src="https://media.tenor.com/l0IylSF3kOMqRNYbiAAAAAD/starbucks-coffee-pour.gif"
+            alt="Starbucks Coffee Pour GIF" class="dashboard-gif">
+        <img src="https://media.tenor.com/3o7aDgy5f4tlgkK3vOAAAAAD/starwars-baby-yoda-mandalorian.gif"
+            alt="Baby Yoda Starbucks GIF" class="dashboard-gif">
+    </div>
+    {% endif %}
+</body>
+
+</html>

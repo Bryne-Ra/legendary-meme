@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Starbucks Analytics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <header class="header">
+        <img src="{{ url_for('static', filename='images/starbucks_logo_resized.png') }}" alt="Starbucks Logo"
+            class="logo">
+    </header>
+    <nav class="button-nav">
+        <a href="{{ url_for('analytics_dashboard') }}"
+            class="nav-button {% if active_tab == 'dashboard' %}active{% endif %}">Analytics Dashboard 🌟</a>
+        <a href="{{ url_for('starbucks_analytics') }}"
+            class="nav-button {% if active_tab == 'starbucks' %}active{% endif %}">Starbucks Analytics ☕</a>
+        <a href="{{ url_for('predict') }}" class="nav-button {% if active_tab == 'predict' %}active{% endif %}">Predict
+            ☕</a>
+    </nav>
+    <h1>Starbucks Analytics ☕🌟</h1>
+    <div class="article">
+        {{ content | safe }}
+        <img src="{{ url_for('static', filename='images/starbucks_coffee_beans_resized.jpg') }}" alt="Starbucks Coffee"
+            class="coffee-image">
+        <img src="https://media.tenor.com/l0IylSF3kOMqRNYbiAAAAAD/starbucks-coffee-pour.gif"
+            alt="Starbucks Coffee Pour GIF" class="coffee-gif">
+        <img src="https://media.tenor.com/7J9f7bXz0O8AAAAC/starbucks-coffee.gif" alt="Starbucks Logo Animation GIF"
+            class="coffee-gif">
+    </div>
+</body>
+
+</html> 
