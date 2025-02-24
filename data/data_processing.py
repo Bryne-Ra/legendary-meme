@@ -1,89 +1,82 @@
-# Import necessary libraries
 import pandas as pd
 import numpy as np
 import ast
 from sqlalchemy import create_engine
-
-# Define constants for file paths
-TRANSACTION_DATA_PATH = 'transcript.json'
-PROFILE_DATA_PATH = 'profile.json'
-PORTFOLIO_DATA_PATH = 'portfolio.json'
-DATABASE_PATH = 'cleaned_data.db'  # Matches run.py
-
-# Function to load data from JSON files
+import sys
 
 
-def load_data():
+def load_data(transaction_filepath, profile_filepath, portfolio_filepath):
     """
-    Load the transaction, profile, and portfolio data from JSON files.
+    Load transaction, profile, and portfolio datasets.
+
+    Parameters:
+    transaction_filepath (str): Filepath to the transaction JSON file.
+    profile_filepath (str): Filepath to the profile JSON file.
+    portfolio_filepath (str): Filepath to the portfolio JSON file.
+
     Returns:
-        trns_df (pd.DataFrame): Transaction data.
-        profile_df (pd.DataFrame): Profile data.
-        portfolio_df (pd.DataFrame): Portfolio data.
+    tuple: (transaction_df, profile_df, portfolio_df)
     """
     try:
-        trns_df = pd.read_json(TRANSACTION_DATA_PATH,
-                               orient='records', lines=True)
+        transaction_df = pd.read_json(
+            transaction_filepath, orient='records', lines=True)
         profile_df = pd.read_json(
-            PROFILE_DATA_PATH, orient='records', lines=True)
+            profile_filepath, orient='records', lines=True)
         portfolio_df = pd.read_json(
-            PORTFOLIO_DATA_PATH, orient='records', lines=True)
-        return trns_df, profile_df, portfolio_df
+            portfolio_filepath, orient='records', lines=True)
+        return transaction_df, profile_df, portfolio_df
     except FileNotFoundError as e:
-        raise FileNotFoundError(f"Data file not found: {e}")
+        print(f"Error: File not found - {e}")
+        sys.exit(1)
     except Exception as e:
-        raise RuntimeError(f"Error loading data: {e}")
+        print(f"Error loading data: {e}")
+        sys.exit(1)
 
-# Function to preprocess data
 
-
-def preprocess_data(trns_df, profile_df, portfolio_df):
+def clean_data(transaction_df, profile_df, portfolio_df):
     """
     Clean and preprocess the data.
-    Args:
-        trns_df (pd.DataFrame): Transaction data.
-        profile_df (pd.DataFrame): Profile data.
-        portfolio_df (pd.DataFrame): Portfolio data.
+
+    Parameters:
+    transaction_df (pd.DataFrame): Transaction data.
+    profile_df (pd.DataFrame): Profile data.
+    portfolio_df (pd.DataFrame): Portfolio data.
+
     Returns:
-        final_df (pd.DataFrame): Cleaned and merged data.
+    df (pd.DataFrame): Cleaned and merged dataframe.
     """
-    # Clean transaction data
-    df_fixd = trns_df.copy()
-    df_fixd['value'] = df_fixd['value'].apply(
+    transaction_df['value'] = transaction_df['value'].apply(
         lambda val: ast.literal_eval(val) if isinstance(val, str) else val)
-    df_fixd['offer_id'] = df_fixd['value'].apply(
+    transaction_df['offer_id'] = transaction_df['value'].apply(
         lambda x: x.get('offer id', x.get('offer_id', None)))
-    df_fixd['amount'] = df_fixd['value'].apply(lambda x: x.get('amount', None))
-    df_fixd['reward'] = df_fixd['value'].apply(lambda x: x.get('reward', None))
-    df_fixd.drop(columns=['value'], inplace=True)
+    transaction_df['amount'] = transaction_df['value'].apply(
+        lambda x: x.get('amount', None))
+    transaction_df['reward'] = transaction_df['value'].apply(
+        lambda x: x.get('reward', None))
+    transaction_df.drop(columns=['value'], inplace=True)
 
-    # Clean profile data
-    df_profile = profile_df.copy()
-    df_profile['age'] = df_profile['age'].replace(118, np.nan)
-    df_profile['age'] = df_profile['age'].fillna(
-        df_profile['age'].mean()).astype(int)
-    df_profile['became_member_on'] = pd.to_datetime(
-        df_profile['became_member_on'], format='%Y%m%d')
-    df_profile['income'] = df_profile['income'].fillna(
-        df_profile['income'].mean()).astype(int)
-    df_profile['gender'] = df_profile['gender'].fillna('O')
+    profile_df['age'] = profile_df['age'].replace(118, np.nan)
+    profile_df['age'] = profile_df['age'].fillna(
+        profile_df['age'].mean()).astype(int)
+    profile_df['became_member_on'] = pd.to_datetime(
+        profile_df['became_member_on'], format='%Y%m%d')
+    profile_df['income'] = profile_df['income'].fillna(
+        profile_df['income'].mean()).astype(int)
+    profile_df['gender'] = profile_df['gender'].fillna('O')
 
-    # Merge transaction and profile data
     df_trans_profile = pd.merge(
-        df_fixd, df_profile, left_on='person', right_on='id', how='left')
+        transaction_df, profile_df, left_on='person', right_on='id', how='left')
     df_trans_profile.drop(columns=['id'], inplace=True)
     df_trans_profile['offer_id'] = df_trans_profile['offer_id'].fillna('N/A')
 
-    # Create binary columns for each event type (fix column name)
     event_dummies = pd.get_dummies(df_trans_profile['event']).rename(columns={
         'offer received': 'event_offer_received',
         'offer viewed': 'event_offer_viewed',
         'transaction': 'event_transaction',
-        'offer completed': 'event_offer_completed'  # Align with run.py
+        'offer completed': 'event_offer_completed'
     })
     df_trans_profile = pd.concat([df_trans_profile, event_dummies], axis=1)
 
-    # Create separate columns for each event type
     time_columns = {
         'offer received': 'time_offer_received',
         'offer viewed': 'time_offer_viewed',
@@ -122,7 +115,6 @@ def preprocess_data(trns_df, profile_df, portfolio_df):
     df_trans_profile.drop(
         columns=['event', 'time', 'amount', 'reward', 'offer_id'], inplace=True)
 
-    # Group by 'person' and aggregate the data
     df_grouped = df_trans_profile.groupby('person').agg({
         'gender': 'first',
         'age': 'first',
@@ -150,61 +142,67 @@ def preprocess_data(trns_df, profile_df, portfolio_df):
         'offer_id_offer_completed': 'first'
     }).reset_index()
 
-    # Merge with portfolio data
     final_df = pd.merge(df_grouped, portfolio_df,
                         left_on='offer_id_offer_received', right_on='id', how='left')
     final_df.drop(columns=['id'], inplace=True)
 
-    # Ensure channels is stored as a string representation of a list
     final_df['channels'] = final_df['channels'].apply(
         lambda x: str(x) if isinstance(x, list) else x)
-
-    # Calculate days to complete the offer (handle division by zero)
     final_df['days_to_complete'] = np.where(
         final_df['duration'] != 0,
         (final_df['time_offer_completed'] / 24) / final_df['duration'],
         0
     )
 
-    # Ensure all expected columns are present
-    expected_columns = [
-        'person', 'gender', 'age', 'income', 'channels', 'offer_type', 'duration',
-        'event_offer_completed', 'days_to_complete', 'offer_id_offer_viewed'
-    ]
-    for col in expected_columns:
-        if col not in final_df.columns:
-            final_df[col] = np.nan  # Add missing columns with NaN
+    final_df = final_df.drop_duplicates()
 
     return final_df
 
-# Function to save cleaned data to SQLite database
 
-
-def save_data(df, db_path):
+def save_data(df, database_filepath):
     """
-    Save the cleaned data into an SQLite database.
-    Args:
-        df (pd.DataFrame): Cleaned data.
-        db_path (str): Path to the SQLite database.
+    Save the cleaned dataframe to an SQLite database.
+
+    Parameters:
+    df (pd.DataFrame): Cleaned dataframe to be saved.
+    database_filepath (str): Filepath to the SQLite database.
     """
     try:
-        engine = create_engine(f'sqlite:///{db_path}')
-        df.to_sql('cleaned_data', engine, if_exists='replace', index=False)
-        print(f"Data saved to {db_path}")
+        engine = create_engine(f'sqlite:///{database_filepath}')
+        df.to_sql('cleaned_data', engine, index=False, if_exists='replace')
     except Exception as e:
-        raise RuntimeError(f"Error saving data to database: {e}")
+        print(f"Error saving to database: {e}")
+        sys.exit(1)
 
 
-# Main function to execute the pipeline
-if __name__ == "__main__":
-    try:
-        # Load data
-        trns_df, profile_df, portfolio_df = load_data()
+def main():
+    # Debugging line to verify arguments
+    print(f"Arguments received: {sys.argv}")
+    if len(sys.argv) == 5:  # Corrected to 5 (script name + 4 arguments)
+        transaction_filepath, profile_filepath, portfolio_filepath, database_filepath = sys.argv[
+            1:]
 
-        # Clean data
-        final_df = preprocess_data(trns_df, profile_df, portfolio_df)
+        print('Loading data...\n    TRANSACTION: {}\n    PROFILE: {}\n    PORTFOLIO: {}'
+              .format(transaction_filepath, profile_filepath, portfolio_filepath))
+        transaction_df, profile_df, portfolio_df = load_data(
+            transaction_filepath, profile_filepath, portfolio_filepath)
 
-        # Save cleaned data to SQLite database
-        save_data(final_df, DATABASE_PATH)
-    except Exception as e:
-        print(f"Error in main execution: {e}")
+        print('Cleaning data as of February 24, 2025...')
+        df = clean_data(transaction_df, profile_df, portfolio_df)
+
+        print('Saving data...\n    DATABASE: {}'.format(database_filepath))
+        save_data(df, database_filepath)
+
+        print('Cleaned data saved to database on February 24, 2025!')
+
+    else:
+        print('Please provide the filepaths of the transaction, profile, and portfolio '
+              'datasets as the first, second, and third arguments respectively, as '
+              'well as the filepath of the database to save the cleaned data '
+              'to as the fourth argument. \n\nExample: python data_processing.py '
+              'transcript.json profile.json portfolio.json cleaned_data.db')
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

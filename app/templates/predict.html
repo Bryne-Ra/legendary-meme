@@ -53,6 +53,43 @@
                 <option value="informational">Informational</option>
             </select><br><br>
 
+            <!-- New Fields for Critical Features -->
+            <label for="event_offer_received">Offer Received? 🌟</label>
+            <select id="event_offer_received" name="event_offer_received" required>
+                <option value="1">Yes</option>
+                <option value="0">No</option>
+            </select><br><br>
+
+            <label for="event_offer_viewed">Offer Viewed? ☕</label>
+            <select id="event_offer_viewed" name="event_offer_viewed" required>
+                <option value="1">Yes</option>
+                <option value="0">No</option>
+            </select><br><br>
+
+            <label for="event_transaction">Transaction Made? 🌟</label>
+            <select id="event_transaction" name="event_transaction" required>
+                <option value="1">Yes</option>
+                <option value="0">No</option>
+            </select><br><br>
+
+            <label for="time_offer_received">Time Offer Received (hours since start) ☕</label>
+            <input type="number" id="time_offer_received" name="time_offer_received" required min="0" step="1"><br><br>
+
+            <label for="time_offer_viewed">Time Offer Viewed (hours since start) 🌟</label>
+            <input type="number" id="time_offer_viewed" name="time_offer_viewed" required min="0" step="1"><br><br>
+
+            <label for="time_transaction">Time of Transaction (hours since start) ☕</label>
+            <input type="number" id="time_transaction" name="time_transaction" required min="0" step="1"><br><br>
+
+            <label for="amount_transaction">Transaction Amount ($) 🌟</label>
+            <input type="number" id="amount_transaction" name="amount_transaction" required min="0" step="0.01"><br><br>
+
+            <label for="reward">Reward Amount ($) ☕</label>
+            <input type="number" id="reward" name="reward" required min="0" step="0.01"><br><br>
+
+            <label for="difficulty">Offer Difficulty 🌟</label>
+            <input type="number" id="difficulty" name="difficulty" required min="0" max="10"><br><br>
+
             <button type="submit">Predict ☕</button>
         </form>
         <div id="result"></div>
@@ -68,7 +105,16 @@
                     income: document.getElementById('income').value,
                     gender: document.getElementById('gender').value,
                     channels: Array.from(document.querySelectorAll('input[name="channels"]:checked')).map(cb => cb.value),
-                    offer_type: document.getElementById('offer_type').value
+                    offer_type: document.getElementById('offer_type').value,
+                    event_offer_received: document.getElementById('event_offer_received').value,
+                    event_offer_viewed: document.getElementById('event_offer_viewed').value,
+                    event_transaction: document.getElementById('event_transaction').value,
+                    time_offer_received: document.getElementById('time_offer_received').value,
+                    time_offer_viewed: document.getElementById('time_offer_viewed').value,
+                    time_transaction: document.getElementById('time_transaction').value,
+                    amount_transaction: document.getElementById('amount_transaction').value,
+                    reward: document.getElementById('reward').value,
+                    difficulty: document.getElementById('difficulty').value
                 };
                 fetch('/predict', {
                     method: 'POST',
@@ -81,9 +127,9 @@
                             document.getElementById('result').innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
                         } else {
                             document.getElementById('result').innerHTML = `
-                        <p>Prediction: ${data.prediction ? 'Offer will be completed ☕' : 'Offer will not be completed'}</p>
-                        <p>Confidence: ${data.confidence}% 🌟</p>
-                    `;
+                                <p>Prediction: ${data.prediction ? 'Offer will be completed ☕' : 'Offer will not be completed'}</p>
+                                <p>Confidence: ${data.confidence}% 🌟</p>
+                            `;
                         }
                     })
                     .catch(error => {

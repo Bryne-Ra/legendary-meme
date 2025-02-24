@@ -1,7 +1,5 @@
-# Import necessary libraries
 import pandas as pd
 import numpy as np
-import ast
 import joblib
 from sqlalchemy import create_engine
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -9,43 +7,46 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.metrics import classification_report, accuracy_score
-import os
-
-# Define constants for file paths
-DATABASE_PATH = '../data/cleaned_data.db'
-MODEL_OUTPUT_PATH = '../models/best_model.pkl'  # Align with run.py
-
-# Function to load data from SQLite database
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer  # Added for handling NaN
+import sys
+import ast
 
 
-def load_data(db_path):
-    try:
-        engine = create_engine(f'sqlite:///{db_path}')
-        query = "SELECT * FROM cleaned_data"
-        df = pd.read_sql(query, engine)
-        if df.empty:
-            raise ValueError("No data found in the database")
-        print("Columns in the database:", df.columns.tolist())
-        return df
-    except Exception as e:
-        raise RuntimeError(f"Failed to load data: {e}")
+def load_data(database_filepath):
+    """
+    Load cleaned data from the SQLite database.
 
-# Function to preprocess data
+    Parameters:
+    database_filepath (str): Filepath to the SQLite database.
+
+    Returns:
+    df (pd.DataFrame): Cleaned dataframe.
+    """
+    engine = create_engine(f'sqlite:///{database_filepath}')
+    df = pd.read_sql("SELECT * FROM cleaned_data", engine)
+    return df
 
 
 def preprocess_data(df):
-    df['age'] = df['age'].replace(118, np.nan)
-    df['age'] = df['age'].fillna(df['age'].mean()).astype(int)
+    """
+    Preprocess the data for model training.
+
+    Parameters:
+    df (pd.DataFrame): Raw data.
+
+    Returns:
+    df (pd.DataFrame): Preprocessed data.
+    """
+    df['age'] = df['age'].replace(118, np.nan).fillna(
+        df['age'].mean()).astype(int)
     df['income'] = df['income'].fillna(df['income'].mean()).astype(int)
     df['gender'] = df['gender'].fillna('O')
 
-    def safe_literal_eval(x):
-        try:
-            return ast.literal_eval(x) if isinstance(x, str) else []
-        except (ValueError, SyntaxError):
-            return []
-
-    df['channels'] = df['channels'].apply(safe_literal_eval)
+    df['channels'] = df['channels'].apply(
+        lambda x: ast.literal_eval(x) if isinstance(x, str) else []
+    )
     channel_types = ['email', 'mobile', 'social', 'web']
     for channel in channel_types:
         df[f'channel_{channel}'] = df['channels'].apply(
@@ -54,117 +55,151 @@ def preprocess_data(df):
     df = df.drop(
         columns=['channels', 'offer_id_offer_viewed', 'person'], errors='ignore')
     df = pd.get_dummies(df, columns=['offer_type', 'gender'])
+
     return df
 
-# Function to train and evaluate logistic regression model
 
+def select_features(df):
+    """
+    Select features for model training.
 
-def train_logistic_regression(df):
+    Parameters:
+    df (pd.DataFrame): Preprocessed data.
+
+    Returns:
+    X (pd.DataFrame): Features.
+    y (pd.Series): Target variable.
+    """
     features = [
-        'age', 'income',
-        'gender_F', 'gender_M', 'gender_O',
-        'channel_web', 'channel_email', 'channel_mobile', 'channel_social',
-        'offer_type_bogo', 'offer_type_discount', 'offer_type_informational'
+        'age', 'income', 'event_offer_received', 'event_offer_viewed', 'event_transaction',
+        'time_offer_received', 'time_offer_viewed', 'time_transaction', 'amount_transaction',
+        'reward', 'difficulty', 'channel_email', 'channel_mobile', 'channel_social', 'channel_web',
+        'offer_type_bogo', 'offer_type_discount', 'offer_type_informational', 'gender_F', 'gender_M', 'gender_O'
     ]
-    try:
-        X = df[features]
-        y = df['event_offer_completed']  # Already fixed
-    except KeyError as e:
-        raise KeyError(f"Column not found in DataFrame: {e}")
+    X = df[features]
+    y = df['event_offer_completed']
+    return X, y
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.3, random_state=42)
-    logreg = LogisticRegression(max_iter=300)
-    logreg.fit(X_train, y_train)
-    y_pred = logreg.predict(X_test)
+
+def train_logistic_regression(X_train, X_test, y_train, y_test):
+    """Train Logistic Regression with GridSearchCV"""
+    pipeline = Pipeline([
+        ('imputer', SimpleImputer(strategy='mean')),  # Added to handle NaN
+        ('scaler', StandardScaler()),
+        ('clf', LogisticRegression(max_iter=300, random_state=42))
+    ])
+
+    param_grid = {
+        'clf__C': [0.01, 0.1, 1, 10],
+        'clf__penalty': ['l1', 'l2'],
+        'clf__solver': ['liblinear']  # Compatible with l1 and l2
+    }
+
+    grid = GridSearchCV(pipeline, param_grid, cv=3,
+                        scoring='accuracy', n_jobs=-1)
+    grid.fit(X_train, y_train)
+    y_pred = grid.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    print("Logistic Regression Classification Report:")
     print(classification_report(y_test, y_pred))
-    return logreg, accuracy
-
-# Function to train and evaluate random forest model
+    return grid.best_estimator_, accuracy
 
 
-def train_random_forest(df):
-    features = [
-        'age', 'income',
-        'gender_F', 'gender_M', 'gender_O',
-        'channel_web', 'channel_email', 'channel_mobile', 'channel_social',
-        'offer_type_bogo', 'offer_type_discount', 'offer_type_informational'
-    ]
-    try:
-        X = df[features]
-        y = df['event_offer_completed']
-    except KeyError as e:
-        raise KeyError(f"Column not found in DataFrame: {e}")
+def train_random_forest(X_train, X_test, y_train, y_test):
+    """Train Random Forest with GridSearchCV"""
+    pipeline = Pipeline([
+        ('imputer', SimpleImputer(strategy='mean')),  # Added to handle NaN
+        ('clf', RandomForestClassifier(random_state=42))
+    ])
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.3, random_state=42)
-    rf_params = {'n_estimators': [100, 200], 'max_depth': [
-        None, 10, 20], 'min_samples_split': [2, 5], 'min_samples_leaf': [1, 2]}
-    rf = RandomForestClassifier(random_state=42)
-    rf_grid_search = GridSearchCV(
-        estimator=rf, param_grid=rf_params, cv=3, scoring='accuracy', n_jobs=-1)
-    rf_grid_search.fit(X_train, y_train)
-    rf_best_model = rf_grid_search.best_estimator_
-    y_pred = rf_best_model.predict(X_test)
+    param_grid = {
+        'clf__n_estimators': [100, 200],
+        'clf__max_depth': [None, 10, 20],
+        'clf__min_samples_split': [2, 5]
+    }
+
+    grid = GridSearchCV(pipeline, param_grid, cv=3,
+                        scoring='accuracy', n_jobs=-1)
+    grid.fit(X_train, y_train)
+    y_pred = grid.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    print("Random Forest Classification Report:")
     print(classification_report(y_test, y_pred))
-    return rf_best_model, accuracy
-
-# Function to train and evaluate XGBoost model
+    return grid.best_estimator_, accuracy
 
 
-def train_xgboost(df):
-    features = [
-        'age', 'income',
-        'gender_F', 'gender_M', 'gender_O',
-        'channel_web', 'channel_email', 'channel_mobile', 'channel_social',
-        'offer_type_bogo', 'offer_type_discount', 'offer_type_informational'
-    ]
-    try:
-        X = df[features]
-        y = df['event_offer_completed']
-    except KeyError as e:
-        raise KeyError(f"Column not found in DataFrame: {e}")
+def train_xgboost(X_train, X_test, y_train, y_test):
+    """Train XGBoost with GridSearchCV"""
+    pipeline = Pipeline([
+        ('imputer', SimpleImputer(strategy='mean')),  # Added to handle NaN
+        ('clf', XGBClassifier(random_state=42, eval_metric='logloss'))
+    ])
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.3, random_state=42)
-    xgb_params = {'n_estimators': [100, 200], 'max_depth': [
-        3, 5, 7], 'learning_rate': [0.01, 0.1, 0.2], 'subsample': [0.8, 1.0]}
-    xgb = XGBClassifier(
-        random_state=42, use_label_encoder=False, eval_metric='logloss')
-    xgb_grid_search = GridSearchCV(
-        estimator=xgb, param_grid=xgb_params, cv=3, scoring='accuracy', n_jobs=-1)
-    xgb_grid_search.fit(X_train, y_train)
-    xgb_best_model = xgb_grid_search.best_estimator_
-    y_pred = xgb_best_model.predict(X_test)
+    param_grid = {
+        'clf__n_estimators': [100, 200],
+        'clf__max_depth': [3, 5],
+        'clf__learning_rate': [0.01, 0.1]
+    }
+
+    grid = GridSearchCV(pipeline, param_grid, cv=3,
+                        scoring='accuracy', n_jobs=-1)
+    grid.fit(X_train, y_train)
+    y_pred = grid.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    print("XGBoost Classification Report:")
     print(classification_report(y_test, y_pred))
-    return xgb_best_model, accuracy
+    return grid.best_estimator_, accuracy
 
-# Main function to execute the pipeline
+
+def train_and_save_model(database_filepath, model_output_path):
+    """Main training workflow"""
+    try:
+        df = load_data(database_filepath)
+        df = preprocess_data(df)
+        X, y = select_features(df)
+
+        # Check for NaN values before splitting (for debugging)
+        if X.isna().any().any():
+            print("Warning: NaN values detected in features before training.")
+            print(X.isna().sum())
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.3, random_state=42)
+
+        print(f"Training models as of February 24, 2025...")
+        print("Training Logistic Regression...")
+        logreg_model, logreg_acc = train_logistic_regression(
+            X_train, X_test, y_train, y_test)
+
+        print("\nTraining Random Forest...")
+        rf_model, rf_acc = train_random_forest(
+            X_train, X_test, y_train, y_test)
+
+        print("\nTraining XGBoost...")
+        xgb_model, xgb_acc = train_xgboost(X_train, X_test, y_train, y_test)
+
+        models = [
+            (logreg_model, logreg_acc, "Logistic Regression"),
+            (rf_model, rf_acc, "Random Forest"),
+            (xgb_model, xgb_acc, "XGBoost")
+        ]
+        best_model, best_acc, best_name = max(models, key=lambda x: x[1])
+
+        print(
+            f"\nBest model: {best_name} (Accuracy: {best_acc:.4f}) - Saved on Feb 24, 2025")
+        joblib.dump(best_model, model_output_path)
+        print(f"Model saved to {model_output_path}")
+
+    except Exception as e:
+        print(f"\nError in training pipeline: {str(e)}")
 
 
 def main():
-    try:
-        os.makedirs(os.path.dirname(MODEL_OUTPUT_PATH), exist_ok=True)
-        df = load_data(DATABASE_PATH)
-        df = preprocess_data(df)
-        logreg_model, logreg_accuracy = train_logistic_regression(df)
-        rf_model, rf_accuracy = train_random_forest(df)
-        xgb_model, xgb_accuracy = train_xgboost(df)
-        models = [(logreg_model, logreg_accuracy, "Logistic Regression"), (rf_model,
-                                                                           rf_accuracy, "Random Forest"), (xgb_model, xgb_accuracy, "XGBoost")]
-        best_model, best_accuracy, best_name = max(models, key=lambda x: x[1])
-        print(f"Best model: {best_name} with accuracy: {best_accuracy}")
-        joblib.dump(best_model, MODEL_OUTPUT_PATH)
-        print(f"Model saved to {MODEL_OUTPUT_PATH}")
-    except Exception as e:
-        print(f"Error in main execution: {e}")
+    if len(sys.argv) == 3:
+        database_path = sys.argv[1]
+        model_path = sys.argv[2]
+        train_and_save_model(database_path, model_path)
+    else:
+        print("Usage: python train_model.py <database_path> <model_output_path>\n"
+              "Example: python train_model.py ../data/cleaned_data.db ../models/best_model.pkl")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
