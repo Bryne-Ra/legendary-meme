@@ -67,18 +67,18 @@ Starbucks Project Workspace/
 4. **Set Up SQLite Database:**
    - Run the data processing script to clean and save data to `cleaned_data.db`:
      ```bash
-     python data_processing.py
+     python data_processing.py transcript.json profile.json portfolio.json cleaned_data.db
      ```
 5. **Train the Model:**
    - Run the model training script to train and save the best model to `models/best_model.pkl`:
      ```bash
-     python model_training.py
+     python train_model.py ../data/cleaned_data.db ../models/best_model.pkl
      ```
 6. **Run the Flask App:**
    - Navigate to the `app/` directory.
    - Start the Flask application:
      ```bash
-     python run.py
+     python3 run.py ../models/best_model.pkl ../data/cleaned_data.db
      ```
    - Open your browser and visit `http://127.0.0.1:5000/` to access the dashboard.
 
